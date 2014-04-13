@@ -1,4 +1,6 @@
-<?php session_start();$_SESSION['level']=4;?>
+<?php session_start();
+$_SESSION['level']=4;
+?>
 <!DOCTYPE html>
 <html>
 	<head>
@@ -18,7 +20,7 @@
 			<aside>
 				<nav>
 					<ul>
-						<li><a href="#">Bemutatóim</a></li>
+						<li><a href="room_form.php?szid=<?php print $szid;?>">Hozzászól</a></li>
 						<li><a href="#">Profilom</a></li>
 						<li><a href="#">Kilépés</a></li>
 					</ul>
@@ -35,7 +37,7 @@
 							<div class="fo">
 								<div class="info">
 									<h4><?php print $bemutato['id'].'-'.$bemutato['user']; echo '('.date("m/d H:i",$bemutato['date']).')';?></h4>
-									<p class="kisbetu"><?php echo $bemutato['hsz']; ?></p>
+									<p class="kisbetu"><?php echo clean($bemutato['hsz']); ?></p>
 									<p class="kisbetu">
 										Küldve: <?php //echo date("m/d H:i",$bemutato['send_date']); ?>
 									</p>
