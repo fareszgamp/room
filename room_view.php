@@ -1,4 +1,7 @@
-<?php session_start();$_SESSION['level']=5;?><!DOCTYPE html>
+<?php session_start();
+$_SESSION['level']=4;
+?>
+<!DOCTYPE html>
 <html>
 	<head>
 		<title>fk zkk fzk</title>
@@ -17,7 +20,7 @@
 			<aside>
 				<nav>
 					<ul>
-						<li><a href="#">Bemutatóim</a></li>
+						<li><a href="room_form.php?szid=<?php print $szid;?>">Hozzászól</a></li>
 						<li><a href="#">Profilom</a></li>
 						<li><a href="#">Kilépés</a></li>
 					</ul>
@@ -28,12 +31,13 @@
 					<h2>Bejelentkezés után tölteni kell! bemutatói</h2>
 					<ul class="lista">
 					<!-- Dinamikus tartalom kezdete: bemutatólista -->
-					<?php foreach ($bemutatok as $bemutato) : ?>
+				<?php if (isset($roomContent)) : ?>
+					<?php foreach ($roomContent as $bemutato) : ?>
 						<li>
 							<div class="fo">
 								<div class="info">
 									<h4><?php print $bemutato['id'].'-'.$bemutato['user']; echo '('.date("m/d H:i",$bemutato['date']).')';?></h4>
-									<p class="kisbetu"><?php echo $bemutato['hsz']; ?></p>
+									<p class="kisbetu"><?php echo clean($bemutato['hsz']); ?></p>
 									<p class="kisbetu">
 										Küldve: <?php //echo date("m/d H:i",$bemutato['send_date']); ?>
 									</p>
@@ -54,8 +58,9 @@
 					</ul>
 					<div class="separator"></div>
 					<?php for($i=1;$i<count($pages);$i++) : ?>
-						<a href="room.php?page=<?php print $pages[$i];?>"><?php print $pages[$i];?></a>
-					<?php endfor;print $rowscount;?>
+						<a href="room.php?szid=6&page=<?php print $pages[$i];?>"><?php print $pages[$i];?></a>
+					<?php endfor;?>
+				<?php endif;?>
 				</div>
 			</div>
 			<div class="separator"></div>

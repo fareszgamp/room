@@ -1,95 +1,126 @@
 <?php
- 
-class myDBC {
-	public $mysqli = null;
- 
-	public function __construct() {
-		define("DB_SERVER", "localhost");
-		define("DB_USER", "");
-		define("DB_PASS", "");
-		define("DB_NAME", "");      
-		$this->mysqli = new mysqli(DB_SERVER, DB_USER, DB_PASS, DB_NAME);
-		if ($this->mysqli->connect_errno) {
-			echo "Error MySQLi: ("&nbsp. $this->mysqli->connect_errno 
-			. ") " . $this->mysqli->connect_error;
-			exit();
-		}
-		$this->mysqli->set_charset("utf8"); 
-	}
-	public function __destruct() {
-		$this->CloseDB();
+include('mydbal_db.php');
+	
+	/*room_content
+	*csak az offset és limit alapján lekérdezett tömbböt ada vissza
+	*/
+	function room_content ($szid,$offset){
+	$mydb = new myDBC();
+		$sql = "SELECT * FROM szoba where szoba_id= ? order by date desc limit ?,15";
+		$par = array($szid,$offset);
+		$type = array('i','i');
+		$tomb = array("sql"=>$sql,"type"=>$type,"param"=>$par);
+		return $mydb->resultArray ($tomb);
 	}
 	
-//------------------preparált lekérdezés végrehalytása:-------------------------------
-	public function runQuery($tomb) {
-		$stmt = $this->mysqli->prepare($tomb['lekerdez']);
-		if($tomb['type']!=""){
-			$a_params = array();
-			$param_type = '';
-			$n = count($tomb['type']);
-			for($i = 0; $i < $n; $i++) {
-				$param_type .= $tomb['type'][$i];
-			}
-			$a_params[] = & $param_type;
-			for($i = 0; $i < $n; $i++) {
-				$a_params[] = & $tomb['param'][$i];
-			}
-			call_user_func_array(array($stmt, 'bind_param'), $a_params);
-		}
-		$stmt -> execute();
-		return $stmt;
+	/*insertRoomMsg
+	*A kapott adatokat átadja a myDBC class runQuery function-nak
+	*Melyeket preparált eljárással bevisz az adtbázisba
+	*Ha létrejön a bevitel akkor $id=1 ha nem akkor $id=0
+	*/
+	function insertRoomMsg($id,$szid,$user,$level,$stat,$date,$msg){
+	$mydb = new myDBC();
+		$sql = "insert into szoba values (?,?,?,?,?,?,?)";
+		$par = array($id,$szid,$user,$level,$stat,$date,$msg);
+		$type = array('i','i','s','i','i','i','s');
+		$tomb = array("sql"=>$sql,"type"=>$type,"param"=>$par);
+		if($mydb->runQuery($tomb)){
+			$id=1;
+		}else $id=0;
+		return $id;
 	}
-//---------------preparált lekérdezésből associatív tömb kinyerés----------------------
-	public function resultArray($tomb){
-		$stmt=$this->runQuery($tomb);
-		    $meta = $stmt->result_metadata();
-		while ($field = $meta->fetch_field()){
-			$params[] = &$row[$field->name];
+	
+	function filter( $data ){
+	$mydb = new myDBC();
+		if( !is_array( $data ) )
+		{
+			$data = $mydb->mysqli->real_escape_string( $data );
+			$data = trim( htmlentities( $data, ENT_QUOTES, 'UTF-8', false ) );
+			$data = strip_tags($data,"<br>");
 		}
-		call_user_func_array(array($stmt, 'bind_result'), $params);
-		while ($stmt->fetch()) {
-			foreach($row as $key => $val){
-				$c[$key] = $val;
-				
-			}
-			$result[] = $c;
-			
+		else
+		{
+			//Self call function to sanitize array data
+			$data = array_map( array( $mydb, 'filter' ), $data );
 		}
-	   return $result;
-		$stmt->close();
+		return $data;
 	}
-	// kapcsolat bezárás
-	public function CloseDB() {
-		$this->mysqli->close();
+	
+	function clean( $data ){
+		$data = stripslashes( $data );
+		$data = html_entity_decode( $data, ENT_QUOTES, 'UTF-8' );
+		$data = nl2br( $data );
+		$data = urldecode( $data );
+		return $data;
 	}
-	public function clearText($text) {
+	
+	/*clearText:$text
+	*trimmelem
+	*entity_decode-olom ha jól értem akkor utf-8-nak megfelelőre
+	*a\r\n beviteleket str_replace-vel <br> rel helyettesítem
+	*nl2br
+	*A html_entity_decode által visszaalakított stringben megtralálja a nem <br> tag-eket és szűri
+	*real_escape_string
+	*/
+	function clearText ($text){
+	$mydb = new myDBC();
 		$text = trim($text);
-		return $this->mysqli->real_escape_string($text);
+		$text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+		$text = str_replace(array("\r\n", "\r", "\n"), "<br>", $text);
+		$text = nl2br($text);
+		$text = strip_tags($text,"<br>");
+		return $mydb->mysqli->real_escape_string($text);
 	}
-	public function lastInsertID() {
-		return $this->mysqli->insert_id;
+	
+	/*issetRoom
+	*Lekérdezi a rowsCounter a sorok számát 
+	*ha nem üres akkor $id=1 ha üres akkor $id=0
+	*/
+	function issetRoom ($szid){
+	$mydb = new myDBC();
+		$sql="select id from szobak where id = ?";
+		$par = array($szid);
+		$type = array('i');
+		$tomb = array("sql"=>$sql,"type"=>$type,"param"=>$par);
+		if($mydb->rowsCounter($tomb)!=0){
+			$id=1;
+		}else $id=0;
+		return $id;
 	}
-//-----------preparált lekérdezésből származó TÖMB SORAI számának lekérdezése------------
-	public function rowsCount ($tomb) {
-		$result = $this->resultArray($tomb);
-		return count($result);
+	
+	/*pager
+	*a rowsCounter által visszaadtott num_rows alapján és a $imit=10 alapján
+	*átadja a lapozáshoz szükséges lapszámokat
+	*
+	*/
+	function pager ($szid){
+	$mydb = new myDBC();
+		$sql="select id from szoba where szoba_id = ?";
+		$par = array($szid);
+		$type = array('i');
+		$tomb = array("sql"=>$sql,"type"=>$type,"param"=>$par);
+		$rows = $mydb->rowsCounter($tomb);
+		$limit = 10;
+		$c = $rows;
+		$maxpage = ceil($c / $limit);
+		$pages=array();
+			for ($i = 0; $i <= $maxpage; $i++) {
+				$pages[]=$i;
+			}
+		return $pages;
 	}
-//-----------preparált lekérdezésből származó sorok számának lekérdezése------------
-	public function rowsCounter ($tomb) {
-		$stmt=$this->runQuery($tomb);
-		$stmt->store_result();
-		$rows = $stmt->num_rows;
-		return $rows;
-	}
-//-----------preparált lekérdezésből származó oszlopok számának lekérdezése------------
-	public function fieldCounter ($tomb) {
-		$stmt=$this->runQuery($tomb);
-		$counter=$stmt->field_count;
-		return $counter;
-	}
-//-----------offset és limit a lapozáshoz---------------------------------------------
-	public function offset ($tomb,$page){
-		$rows = $this->numRows($tomb);
+	
+	/*offset
+	*a rowsCounter által visszaadtott num_rows alapján és a $imit=10 alapján
+	*átadja a lapozáshoz szükséges offset és limit értékeket
+	*/
+	function offset ($szid,$page){
+	$mydb = new myDBC();
+		$sql="select id from szoba where szoba_id = ?";
+		$par = array($szid);
+		$type = array('i');
+		$tomb = array("sql"=>$sql,"type"=>$type,"param"=>$par);
+		$rows = $mydb->rowsCounter($tomb);
 		$limit = 15;
 		$c = $rows;
 		$maxpage = ceil($c / $limit);
@@ -104,27 +135,7 @@ class myDBC {
 		$offset = ($page - 1) * $limit;
 		$limits=array('offset'=>$offset,'limit'=>$limit);
 		return $limits;
+		
 	}
-//-----------lapozó linkek -------------------------------------------
-	public function lapozo ($tomb){
-
-		$result = $this->mysqli->query($tomb['lekerdez']);
-		$row = $result->fetch_row();
-		$limit = 10;
-		$c = $row[0];
-		$maxpage = ceil($c / $limit);
-		$pages=array();
-			for ($i = 0; $i <= $maxpage; $i++) {
-				$pages[]=$i;
-			}
-		return $pages;
-	}
-//-----------count(*) értéke sima lekérdezésből-------------------------
-	public function numRows ($tomb){
-
-		$result = $this->mysqli->query($tomb['lekerdez']);
-		$row = $result->fetch_row();
-		return $row[0];
-	}
-}
+	
 ?>

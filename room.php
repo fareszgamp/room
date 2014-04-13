@@ -1,26 +1,19 @@
 <?php
+if(isset($_GET['szid'])){
 
-include('room_modell.php');
-
-$mydb = new myDBC();
-$szid=6;
-$nick="faresz";
-if(isset($_GET['page'])) $page=$_GET['page'];
-else $page=1;
-$sqla = "SELECT count(*) FROM szoba where szoba_id= $szid";
-$para=array();
-$typea="";
-$tombom=array("lekerdez"=>$sqla,"type"=>$typea,"param"=>$para);
-$pages = $mydb->lapozo($tombom);
-$limits = $mydb->offset ($tombom,$page);
-$offset=$limits['offset'];
-$limit=$limits['limit'];
-$sql = "SELECT * FROM szoba where szoba_id= ? order by date desc limit ?,?";
-$par=array($szid,$offset,$limit);
-$type=array('i','i','i');
-$tomb=array("lekerdez"=>$sql,"type"=>$type,"param"=>$par);
-$bemutatok = $mydb->resultArray ($tomb);
-$count = $mydb->fieldCounter($tomb);
-$rowscount=$mydb->numRows($tombom);
-
-include('room_view.php');
+	include('room_modell.php');										//szoba modell
+	
+	
+	$szid = clearText($_GET['szid']);								//megtisztítja a get tömböt
+	$id = issetRoom($szid);											//ha létezik a szoba akkor $id=1 ha nem akkor $id=0
+	if($id!=0){
+		if(isset($_GET['page'])) $page = clearText($_GET['page']);
+		else $page = 1;
+		$pages = pager($szid);										//lapozáshoz szükséges számok
+		$limits = offset($szid,$page);								//lapozáshoz szükséges offset és limit
+		$roomContent = room_content($szid,$limits['offset']);		//offset és limit alapján a megadott szoba tartalma
+		
+		include('room_view.php');									//szoba megjelenítése
+		
+	}else print 'Nincs ilyen szoba';
+}
